@@ -59,6 +59,12 @@ def cli(ctx, fmt):
     if fmt:
         set_format(fmt)
 
+    # Skip auth entirely when the user is just asking for help.
+    # Click's resilient_parsing flag is set while generating help text.
+    # We also check sys.argv so `dw <cmd> --help` works without cookies.
+    if ctx.resilient_parsing or "--help" in sys.argv or "-h" in sys.argv:
+        return
+
     # Commands that don't need auth
     if ctx.invoked_subcommand in ("login",):
         return
