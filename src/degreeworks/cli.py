@@ -1,0 +1,89 @@
+"""CLI entry point."""
+
+import sys
+
+import click
+
+from .auth import check_token_expiry, get_student_info, load_cookies, make_session
+from .client import DegreeworksClient
+from .config import load_config
+from .errors import DegreeworksError
+from .formatting import set_format
+
+from .commands.auth_cmd import login, whoami
+from .commands.audit import audit
+from .commands.completed import completed
+from .commands.course import course
+from .commands.dump import dump
+from .commands.progress import progress
+from .commands.remaining import remaining
+
+
+def _make_client_factory(cookies: str, config: dict):
+    """Lazy client initialization."""
+    state = {}
+
+    def factory():
+        if "client" not in state:
+            session = make_session(cookies)
+            state["client"] = DegreeworksClient(
+                session,
+                school=config["school"],
+                degree=config["degree"],
+                audit_type=config["audit_type"],
+            )
+        return state["client"]
+
+    return factory
+
+
+@click.group()
+@click.option("--json", "fmt", flag_value="json", help="JSON output")
+@click.option("--md", "fmt", flag_value="md", help="Markdown output (best for AI)")
+@click.pass_context
+def cli(ctx, fmt):
+    """DegreeWorks CLI – built for AI agents to plan KSU student schedules.
+
+    Setup:
+        dw login            # opens browser, captures cookies
+        dw whoami            # verify auth
+
+    Quick start:
+        dw progress          # how close to graduation?
+        dw remaining         # what courses are left?
+        dw course CS 3305    # prereqs, sections, schedules
+        dw --md dump         # full snapshot for AI agents
+    """
+    ctx.ensure_object(dict)
+
+    if fmt:
+        set_format(fmt)
+
+    # Commands that don't need auth
+    if ctx.invoked_subcommand in ("login",):
+        return
+
+    try:
+        cookies = load_cookies()
+
+        # whoami can work with expired tokens (just shows info)
+        # but API commands need valid tokens
+        if ctx.invoked_subcommand not in ("whoami",):
+            check_token_expiry(cookies)
+
+        info = get_student_info(cookies)
+        ctx.obj["student_id"] = info.get("student_id", "")
+        ctx.obj["client_factory"] = _make_client_factory(cookies, load_config())
+    except DegreeworksError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+
+cli.add_command(login)
+cli.add_command(whoami)
+cli.add_command(audit)
+cli.add_command(completed)
+cli.add_command(course)
+cli.add_command(dump)
+cli.add_command(progress)
+cli.add_command(remaining)

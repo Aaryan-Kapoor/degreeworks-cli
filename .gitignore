@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+dist/
+build/
+
+# Auth – never commit cookies or browser profiles
+cookies.txt
+browser_profile/
