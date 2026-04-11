@@ -45,8 +45,13 @@ def _format_prereqs(prereqs: list) -> str:
     Each prereq entry has connector (A/O), leftParenthesis, rightParenthesis,
     and either a course (subjectCodePrerequisite + courseNumberPrerequisite)
     or a test (tescCode + testScore).
+
+    The connector on the first entry is suppressed: it has nothing to bind to,
+    and some courses (e.g. CS 3305) start with an empty-token entry that only
+    carries an opening paren plus a spurious "O" connector.
     """
     parts = []
+    is_first = True
     for p in prereqs:
         token = ""
         if p.get("subjectCodePrerequisite"):
@@ -61,12 +66,14 @@ def _format_prereqs(prereqs: list) -> str:
         right = p.get("rightParenthesis", "")
 
         prefix = ""
-        if connector == "A":
-            prefix = " AND "
-        elif connector == "O":
-            prefix = " OR "
+        if not is_first:
+            if connector == "A":
+                prefix = " AND "
+            elif connector == "O":
+                prefix = " OR "
 
         parts.append(f"{prefix}{left}{token}{right}")
+        is_first = False
 
     return "".join(parts).strip()
 
