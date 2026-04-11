@@ -8,7 +8,7 @@ import click
 from ..auth import get_student_info, load_cookies
 from ..config import CONFIG_DIR, COOKIES_FILE, save_config
 from ..errors import handle_errors
-from ..formatting import output, section
+from ..formatting import get_format, output, section
 
 
 def _has_auth_cookies(cookies: list[dict]) -> bool:
@@ -141,8 +141,7 @@ def whoami():
     expires = info.get("expires", 0)
     remaining_min = max(0, (expires - now) / 60)
 
-    section("Student Info")
-    output({
+    data = {
         "Name": info["name"],
         "Student ID": info["student_id"],
         "Token Expires": time.strftime(
@@ -150,7 +149,14 @@ def whoami():
         ) if expires else "unknown",
         "Time Remaining": f"{remaining_min:.0f} min" if expires else "unknown",
         "Status": "ACTIVE" if remaining_min > 0 else "EXPIRED",
-    })
+    }
+
+    if get_format() == "json":
+        output(data)
+        return
+
+    section("Student Info")
+    output(data)
 
     if remaining_min <= 0:
         click.echo("\nSession expired. Run `dw login` to re-authenticate.", err=True)

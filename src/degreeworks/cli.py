@@ -2,6 +2,15 @@
 
 import sys
 
+# Ensure Unicode output works on Windows consoles (cp1252 by default).
+# Progress bars, checkmarks, and en-dashes throughout the UI are non-ASCII.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
 import click
 
 from .auth import check_token_expiry, get_student_info, load_cookies, make_session
