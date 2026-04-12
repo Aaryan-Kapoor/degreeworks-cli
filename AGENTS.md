@@ -1,17 +1,153 @@
-# DegreeWorks CLI – Agent Instructions
+# AGENTS.md — DegreeWorks CLI
 
-This CLI provides **strictly read-only** access to a KSU student's DegreeWorks degree audit and course catalog. Use it to help students plan their remaining semesters.
+**This file is the single source of truth for agent instructions in this project.** Every protocol, every command, every constraint is documented here. `CLAUDE.md` imports this file so Claude Code loads it natively; `.claude/skills/degreeworks/SKILL.md` points here so Claude skill invocations read it. Update **this file** when you change agent instructions — never the pointers.
 
-## Setup
+The `dw` CLI provides **strictly read-only** access to a KSU student's DegreeWorks degree audit and course catalog. Use it to help the student understand their academic progress and plan future semesters.
 
-The student runs `dw login` once to capture browser cookies via KSU SSO. After that, all commands work until cookies expire.
+## TL;DR
 
-- **Auth token**: 90-minute lifetime
-- **Refresh token**: 8-hour lifetime (allows `dw login --headless` to refresh without re-login)
-- When the auth token expires but the refresh token is alive, the CLI tells the student to run `dw login --headless`.
-- When both expire, the student must run `dw login` interactively.
+```bash
+dw whoami              # verify auth — always first
+dw --md dump           # full snapshot of student state
+dw --md course CS 3305 # prereqs, sections, schedules for one course
+```
 
-## Global Flags
+For schedule planning, follow the [Schedule Planning Protocol](#schedule-planning-protocol) below exactly. For one-off queries ("what's my GPA?", "show my completed courses"), a single command is fine.
+
+---
+
+## Schedule Planning Protocol
+
+**When to use this protocol**: any time the student asks you to help plan a semester, pick courses, build a schedule, or decide what to take next. Not needed for simple informational queries.
+
+**Why this protocol exists**: schedule planning with an LLM is failure-prone. Models skip verification, hallucinate prereqs, assume constraints, and confuse terms. This protocol is designed to produce **consistent, reproducible plans across different LLMs, different users, and different conversations** by forcing verification at every step.
+
+**Rules of engagement**:
+
+- **Do not skip phases.** Each phase depends on the previous.
+- **Do not reorder.** Planning before gathering produces hallucinated output.
+- **Do not substitute memory for the CLI.** Always re-verify with `dw course` — catalogs change, offerings vary, prior conversation is stale.
+- **Do not assume constraints.** Missing constraints ⇒ wrong plan. If you don't know, ask.
+- **Do not present a plan that fails any validation check.** Return to the failing phase instead.
+
+### Phase 0 — Verify Auth
+
+```bash
+dw whoami
+```
+
+- **Stop if** status is `EXPIRED`. Tell the student the exact recovery command (see [Auth Error Recovery](#auth-error-recovery)) and wait. Do not attempt to describe the student's state from memory.
+- **Proceed if** status is `ACTIVE`.
+
+### Phase 1 — Gather Ground Truth
+
+```bash
+dw --md dump
+```
+
+This is the student's complete current state: identity, degree progress, in-progress courses, completed courses, and remaining requirements. **Everything downstream is grounded in this output.**
+
+- **Do not** fill in gaps from memory, prior conversation, or assumptions. DegreeWorks is authoritative.
+- **Do not** skip this even if the student says "you already know my situation." The snapshot may have changed since the last session (new grades posted, registrations dropped, audit re-evaluated).
+
+### Phase 2 — Gather Constraints Explicitly
+
+Before planning, these constraints **must** be known. Check the project `CLAUDE.md` and the current conversation for pre-set values. For anything missing, **ask the student directly** — do not assume.
+
+1. **Target term(s)** — which semester(s) are we planning? (e.g., "Fall 2026", "Spring–Fall 2026")
+2. **Credit load target** — minimum full-time (12), standard (15), heavy (18), or other
+3. **Time window** — earliest acceptable class start, latest acceptable class end
+4. **Unavailable days** — work, commute distance, family obligations, etc.
+5. **Campus preference** — Marietta, Kennesaw, or either
+6. **Online cap** — any limit on online credits per semester
+7. **Locked-in courses** — honors contracts, advisor mandates, co-ops, existing registrations, transfer credits in flight
+8. **Graduation target** — when the student plans or must graduate (visa constraints, financial aid, etc.)
+
+A plan built on unstated constraints is a wrong plan. If any item above is unknown, **ask and wait for the answer** before proceeding to Phase 3.
+
+### Phase 3 — Identify Candidate Courses
+
+From the `remaining` section of the Phase 1 dump, categorize every listed course:
+
+- **Ready** — prerequisites are already met by completed or in-progress courses
+- **Blocked** — depends on a course not yet taken (note which)
+- **Free-text** — generic requirement like "9 credits of CS 3000–4000 level"
+
+For the target term, your candidate list is:
+
+- All **Ready** courses
+- Any **Blocked** courses whose prereqs will be in-progress during the immediately preceding term (so they'll be satisfied by the target term's start)
+- **Free-text** requirements resolved into specific courses by consulting the catalog
+
+### Phase 4 — Verify Each Candidate With `dw course`
+
+**This is the most important phase. Do not skip.**
+
+For **every** course on the candidate list, run:
+
+```bash
+dw --md course <DISCIPLINE> <NUMBER>
+```
+
+For each course, verify **all** of the following against the CLI output (not memory):
+
+- [ ] Prerequisites are met by the student's completed + in-progress courses
+- [ ] Course is offered in the target term (check section term codes — many courses are every-other-term)
+- [ ] At least one section has days and times within the student's availability window
+- [ ] That section has available seats, or is waitlistable if the student accepts the risk
+- [ ] That section respects campus preference and the online-credit cap
+
+Drop any course that fails any check. Record the passing section's CRN, days, time, campus, and instructor.
+
+- **Do not** recall prereqs from memory or prior conversation.
+- **Do not** assume a course is offered every term.
+- **Do not** assume a section's meeting pattern — check.
+
+### Phase 5 — Draft the Plan
+
+From the verified shortlist, assemble the semester:
+
+- **No time conflicts** across selected sections (overlapping meetings disqualify a pair)
+- **Total credits** within ±3 of the student's target load
+- **Corequisites included** (e.g., a lab required with a lecture — the CLI will flag these)
+- **Constraint-aware** — minimize campus days for commuters, group classes on the same days if preferred, respect online caps
+
+Record per course: CRN, discipline, number, title, credits, days, time, campus, instructor, seats remaining.
+
+### Phase 6 — Validate the Plan
+
+Run the full plan against this checklist before presenting:
+
+- [ ] Every course has an explicit CRN from a real, currently-open section
+- [ ] No time conflicts — re-check days × times across the whole plan
+- [ ] Total credits matches the student's target load
+- [ ] Every course satisfies a specific requirement in `remaining`
+- [ ] All prereq chains are resolved (including prereqs for future-term courses)
+- [ ] Every Phase 2 constraint is honored
+
+If any item fails, return to the phase that owns it. **Do not present a failing plan.**
+
+### Phase 7 — Present with Decisions
+
+Structure the final output exactly like this so the student can review it:
+
+1. **The Plan** — table with columns: Code, Title, Credits, CRN, Days/Time, Campus, Instructor
+2. **Rationale** — one line per course: which `remaining` requirement it satisfies, and why this section was picked over others
+3. **Risks & Trade-offs** — seats remaining, waitlist situations, any known instructor concerns (only if the student supplied a source like RMP), dependencies on other courses
+4. **Fallbacks** — for each course, a backup section to use if the first closes before the student registers
+5. **What's Not in the Plan** — any "Ready" course deferred to a later term, with the reason
+
+### Phase 8 — Defer to the Advisor
+
+Close with:
+
+> This plan is based on DegreeWorks data from Phase 1. **Confirm with your academic advisor before registering.** The CLI cannot register for anything — use Owl Express at the student's registration window.
+
+---
+
+## Complete Command Reference
+
+### Global Flags
 
 Every command accepts these flags, placed **before** the subcommand:
 
@@ -23,28 +159,30 @@ Every command accepts these flags, placed **before** the subcommand:
 
 **Default output** is human-readable tables with Unicode progress bars. For agent use, prefer `--md`.
 
-## Complete Command Reference
-
 ### `dw login`
+
 Capture cookies via KSU SSO. Opens a Chromium browser via Playwright.
 
 ```bash
-dw login              # interactive – student logs in via SSO
+dw login              # interactive — student logs in via SSO
 dw login --headless   # refresh using saved browser profile (no UI)
 ```
 
 During login, the CLI auto-detects the student's `school` and `degree` codes by intercepting the first audit API request and saves them to `~/.degreeworks/config.json`.
 
 ### `dw whoami`
+
 Show current student info and token expiry. Works with expired tokens (useful for debugging auth).
 
 ```bash
 dw whoami
+dw --json whoami   # machine-parseable
 ```
 
-Output: student name, ID, token expiration timestamp, time remaining, and auth status (`ACTIVE` or `EXPIRED`).
+Output: name, student ID, token expiration timestamp, time remaining, status (`ACTIVE` or `EXPIRED`).
 
 ### `dw progress`
+
 Progress bars by requirement area. Shows overall degree % and per-block completion.
 
 ```bash
@@ -55,15 +193,17 @@ dw --json progress
 Blocks shown: Degree, State Legislative Requirements, Honors (if applicable), each Gen Ed area (I/M/P/A/C/T/S), Major, etc.
 
 ### `dw remaining`
+
 All courses still needed for graduation. Includes both specific course advice and free-text requirements (e.g., "Complete 9 credits of CS 3000-4000 level coursework").
 
 ```bash
 dw --md remaining
 ```
 
-Each row: course code, title, credits, whether it has prerequisites, the requirement it satisfies.
+Each row: course code, title, credits, whether it has prerequisites (`Yes`/empty), the requirement it satisfies.
 
 ### `dw completed`
+
 Courses completed or in-progress, grouped by term.
 
 ```bash
@@ -74,7 +214,8 @@ dw --md completed --transfers   # include transfer credits
 Each row: course code, title, credits, grade (or `REGD` for in-progress), term.
 
 ### `dw audit`
-Full degree audit tree with nested rules. Shows every requirement block, every sub-rule, the status of each rule (`DONE`/`IP`/`NEED`/percentage), applied courses, and needed courses. This is the most detailed view.
+
+Full degree audit tree with nested rules. Shows every requirement block, every sub-rule, the status of each rule (`DONE` / `IP` / `NEED` / percentage), applied courses, and needed courses. This is the most detailed view.
 
 ```bash
 dw --md audit
@@ -83,6 +224,7 @@ dw --md audit
 Use this when you need to understand **why** a specific course counts toward a specific requirement, or to see the full structure of the degree plan.
 
 ### `dw course DISCIPLINE NUMBER`
+
 Look up a specific course: description, prerequisites (as parsed boolean logic), and all scheduled sections for upcoming terms.
 
 ```bash
@@ -92,12 +234,16 @@ dw --md course HIST 2112
 ```
 
 Prerequisites are returned as a logical expression like:
-`((MATH 2345 (min C) OR CSE 2300 (min C)) AND ((CSE 1322 (min C) AND CSE 1322L (min C)) OR MTRE 2710 (min B) OR CPE 3000 (min B)))`
+
+```
+((MATH 2345 (min C) OR CSE 2300 (min C)) AND ((CSE 1322 (min C) AND CSE 1322L (min C)) OR MTRE 2710 (min B) OR CPE 3000 (min B)))
+```
 
 Sections include: term, CRN, days (e.g., `MWF`, `TR`), time, building/room, instructor, campus, enrollment (current/max), waitlist.
 
 ### `dw dump`
-Full academic snapshot in a single command. **Start here** when you're new to the student's situation.
+
+Full academic snapshot in a single command. **Use this in Phase 1 of the schedule planning protocol.**
 
 ```bash
 dw --md dump             # everything: progress + in-progress + completed + remaining + blocks
@@ -105,34 +251,11 @@ dw --md dump --shallow   # quick: progress + in-progress only
 dw --json dump           # structured JSON snapshot
 ```
 
-## Recommended Workflow for Schedule Planning
-
-1. **Orient**: `dw --md dump` — get the full picture in one command
-2. **Identify gaps**: `dw --md remaining` — focus on what's needed
-3. **Check prereqs**: `dw --md course <DISC> <NUM>` for each candidate course — verify you can actually take it this semester
-4. **Check availability**: Same `dw course` output shows which terms/sections are offered
-5. **Plan the sequence**: Build a semester-by-semester plan respecting:
-   - Prerequisite chains (if A requires B, take B first)
-   - Credit load (12 = minimum full-time, 15 = typical, 18 = heavy)
-   - Schedule conflicts (check days/times from section data)
-   - Student-specific constraints (max online credits, campus preference, morning class limits, etc. — check `CLAUDE.md` if present)
-
-## Safety: Read-Only by Design
-
-This tool is **strictly read-only**. It can only make GET requests to the DegreeWorks API. It **cannot** and **must not**:
-- Register or drop courses
-- Modify the degree audit
-- Change any student data
-- Submit any forms
-- Make POST, PUT, PATCH, or DELETE requests
-
-The `DegreeworksClient` class in `src/degreeworks/client.py` literally has no method other than `_get()`, `get_audit()`, and `get_course()`. This is enforced in code, not just policy.
-
-**If a student asks you to register for a course, direct them to Owl Express or their advisor.** Never imply the CLI can take registration actions.
+---
 
 ## Configuration
 
-The CLI reads config from `~/.degreeworks/config.json`, which is auto-populated during `dw login`. You can override any value with environment variables:
+The CLI reads config from `~/.degreeworks/config.json`, auto-populated during `dw login`. Override any value with environment variables:
 
 | Env var | Purpose | Default |
 |---|---|---|
@@ -142,10 +265,13 @@ The CLI reads config from `~/.degreeworks/config.json`, which is auto-populated 
 
 Priority: env vars > config.json > hardcoded defaults.
 
-The config file and cookies live at:
+Files:
+
 - `~/.degreeworks/cookies.txt` — session cookies
 - `~/.degreeworks/config.json` — school/degree/audit_type
 - `~/.degreeworks/browser_profile/` — Playwright's persistent browser state
+
+---
 
 ## Auth Error Recovery
 
@@ -157,10 +283,51 @@ The config file and cookies live at:
 
 Check `dw whoami` anytime to see exact token status without triggering an API call.
 
+---
+
+## Read-Only by Design
+
+This tool is **strictly read-only**. It can only make GET requests to the DegreeWorks API. It **cannot** and **must not**:
+
+- Register or drop courses
+- Modify the degree audit
+- Change any student data
+- Submit any forms
+- Make POST, PUT, PATCH, or DELETE requests
+
+The `DegreeworksClient` class in `src/degreeworks/client.py` has no method other than `_get()`, `get_audit()`, and `get_course()`. This is enforced in code, not just policy.
+
+**If a student asks you to register for a course, direct them to Owl Express or their advisor.** Never imply the CLI can take registration actions.
+
+---
+
+## Grade Codes
+
+| Code | Meaning |
+|---|---|
+| `A`–`F` | Standard letter grade |
+| `REGD` | Registered / in-progress (hasn't finished the course yet) |
+| `K` | Credit by exam (AP credit, transfer with P/NP, etc.) |
+| `W` | Withdrawn |
+| `I` | Incomplete |
+| `TR` | Transfer credit (see `--transfers` flag) |
+
+---
+
 ## Other Notes
 
 - The audit reflects DegreeWorks' view, which may lag behind very recent registrations (sometimes up to 24 hours).
-- `dw course` sections are only shown for terms the registrar has published — typically the current term and the next 1-2 upcoming terms.
-- `REGD` as a grade means "registered/in-progress" — the student hasn't finished the course yet.
-- `K` as a grade typically means "credit by exam" (AP credit, transfer with P/NP, etc.).
+- `dw course` sections are only shown for terms the registrar has published — typically the current term and the next 1–2 upcoming terms.
 - Transfer courses have a `transfer: true` flag in `--json` output.
+- `dw --md dump` is idempotent and cheap — run it whenever you need to re-ground your understanding of the student's state.
+
+---
+
+## For Agent Harnesses
+
+This file follows the [AGENTS.md](https://agents.md) open standard and is natively discovered by most coding-agent harnesses:
+
+- **AGENTS.md-native**: OpenAI Codex, Cursor, Aider, GitHub Copilot, Windsurf, Google Jules, JetBrains Junie, Factory, Devin, VS Code agents
+- **Claude Code**: loaded via `CLAUDE.md` which imports this file with `@AGENTS.md`, plus the `.claude/skills/degreeworks/` skill which instructs the agent to read this file
+
+**Single source of truth**: if you are updating agent instructions, update **this file**. The pointer files (`CLAUDE.md`, `SKILL.md`) exist only to route different harnesses here and should never contain instructions of their own.

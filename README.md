@@ -71,29 +71,24 @@ dw --json remaining    # structured JSON
 
 ## AI Agent Setup
 
-This repo ships as a **Claude Code project template**. Open the directory in Claude Code and the `.claude/skills/degreeworks/SKILL.md` skill is pre-wired — just start asking about your schedule.
+All agent instructions live in a single file: **[`AGENTS.md`](AGENTS.md)**. It follows the [agents.md](https://agents.md) open standard and is natively discovered by Codex, Cursor, Aider, Copilot, Windsurf, Jules, Junie, Factory, Devin, and most other coding-agent harnesses. No per-tool setup needed — just open the project in your agent.
 
-For other AI tools (Cursor, Windsurf, ChatGPT, etc.), point them at [`AGENTS.md`](AGENTS.md), which contains:
-- Available commands and when to use them
-- Workflow for schedule planning
-- Read-only safety rules
-- Auth error recovery
+For **Claude Code**, a one-line `CLAUDE.md` imports `AGENTS.md` via `@AGENTS.md` so it loads automatically, and `.claude/skills/degreeworks/SKILL.md` provides a skill-triggered entry point that reads the same file. Open the project and start asking about your schedule.
 
-### Example agent workflow
+### The Schedule Planning Protocol
 
-```
-You: "Plan my next 4 semesters"
+`AGENTS.md` contains a deterministic **8-phase Schedule Planning Protocol** designed to produce reliable, reproducible plans across different LLMs, different users, and different conversations. When you ask an agent to plan a semester, it will:
 
-Agent runs:
-  dw --md dump                 # full picture
-  dw --md remaining            # what's left
-  dw --md course CS 3503       # check prereqs + sections
-  dw --md course CS 3410       # ...
-  ...
+1. **Verify auth** — `dw whoami` to confirm cookies are live
+2. **Gather ground truth** — `dw --md dump` for the complete current state
+3. **Gather constraints explicitly** — ask you for target terms, credit load, time window, days, campus, online cap, locked-in courses, graduation target (no assumed defaults)
+4. **Identify candidates** — categorize every remaining course as Ready / Blocked / Free-text
+5. **Verify each candidate with `dw course`** — prereqs, offering term, seats, schedule fit
+6. **Draft the plan** — conflict-free, credit-load-compliant
+7. **Validate against a checklist** — CRNs, conflicts, credits, prereq chains, all Phase 2 constraints
+8. **Present with rationale, risks, and fallbacks** — then defer to your academic advisor for final sign-off
 
-Agent returns: a semester-by-semester plan with specific CRNs,
-schedule conflict checks, and prereq chain validation.
-```
+The protocol forces verification at every step instead of letting the model hallucinate prereqs or assume a course is offered.
 
 ## How it works
 
