@@ -10,7 +10,7 @@
   <rect x="40" y="30" width="370" height="30" rx="8" fill="#2a2a2a"/>
   <rect x="40" y="52" width="370" height="8" fill="#2a2a2a"/>
   <circle cx="62" cy="45" r="5" fill="#ff5f57"/><circle cx="82" cy="45" r="5" fill="#febc2e"/><circle cx="102" cy="45" r="5" fill="#28c840"/>
-  <text x="225" y="49" text-anchor="middle" fill="#777" font-family="monospace" font-size="11">degreeworks-cli</text>
+  <text x="225" y="49" text-anchor="middle" fill="#777" font-family="monospace" font-size="11">degreeworks-mcp</text>
   <g font-family="monospace" font-size="12">
     <text x="60" y="85" fill="#777">$ <tspan fill="#ddd">dw progress</tspan></text>
     <text x="60" y="110" fill="#bbb">Overall</text><text x="170" y="110" fill="#777">██████████░░░░</text><text x="320" y="110" fill="#ddd">61%</text>
@@ -21,8 +21,8 @@
     <text x="60" y="220" fill="#bbb">CS 3502</text><text x="150" y="220" fill="#777">Operating Systems</text>
     <text x="60" y="245" fill="#555">_</text>
   </g>
-  <text x="470" y="72" font-family="system-ui, sans-serif" font-size="48" font-weight="700" fill="#1a1a1a">degreeworks<tspan font-weight="300" fill="#555">-cli</tspan></text>
-  <text x="470" y="96" font-family="system-ui, sans-serif" font-size="14" fill="#888">Read-only DegreeWorks CLI for AI agents</text>
+  <text x="470" y="72" font-family="system-ui, sans-serif" font-size="48" font-weight="700" fill="#1a1a1a">degreeworks<tspan font-weight="300" fill="#555">-mcp</tspan></text>
+  <text x="470" y="96" font-family="system-ui, sans-serif" font-size="14" fill="#888">Read-only DegreeWorks MCP server for AI agents</text>
   <g font-family="monospace" font-size="10" fill="#555">
     <rect x="470" y="108" width="68" height="20" rx="10" fill="none" stroke="#bbb" stroke-width="0.8"/><text x="504" y="122" text-anchor="middle">progress</text>
     <rect x="544" y="108" width="78" height="20" rx="10" fill="none" stroke="#bbb" stroke-width="0.8"/><text x="583" y="122" text-anchor="middle">remaining</text>
