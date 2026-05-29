@@ -34,7 +34,7 @@ def login(headless):
     except ImportError:
         click.echo(
             "Playwright not installed. Install with:\n"
-            '  pip install "degreeworks-cli[login]"\n'
+            '  pip install "degreeworks-mcp[login]"\n'
             "  playwright install chromium"
         )
         raise SystemExit(1)

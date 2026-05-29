@@ -120,7 +120,7 @@ The CLI route is the same install (`pip install "degreeworks-mcp[login]"`); both
 
 ### MCP server
 
-`src/degreeworks/mcp_server.py` is ~190 lines. It uses the `mcp` Python SDK's `FastMCP` high-level API to declare 7 tools and one prompt, then shells out to the underlying `dw` CLI via `asyncio.create_subprocess_exec` for every tool call. There is no HTTP code, no audit parsing, and no Playwright in the MCP server — it inherits all of that from the CLI underneath. This means:
+`src/degreeworks/mcp_server.py` is ~200 lines. It uses the `mcp` Python SDK's `FastMCP` high-level API to declare 7 tools and one prompt, then shells out to the underlying `dw` CLI via `asyncio.create_subprocess_exec` for every tool call. There is no HTTP code, no audit parsing, and no Playwright in the MCP server — it inherits all of that from the CLI underneath. This means:
 
 - **One canonical code path** for auth, parsing, and output. A bug fix in the CLI is automatically a bug fix in the MCP server.
 - **No GUI subprocesses inside MCP transport.** Spawning Chromium from a stdio MCP subprocess is fragile (sandboxed clients block it; headless containers have no display; remote SSH has no `$DISPLAY`). Keeping `dw login` as a terminal command gives one clear failure mode: "open a terminal and run `dw login`."

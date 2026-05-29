@@ -69,7 +69,7 @@ async def _run_dw(*args: str, timeout: float = DEFAULT_TIMEOUT) -> str:
     if DW_PATH is None:
         raise ToolError(
             "The `dw` CLI is not installed or not on PATH. "
-            'Install with: pip install "degreeworks-cli[login,mcp]"  '
+            'Install with: pip install "degreeworks-mcp[login]"  '
             "Then run `dw login` in a terminal to authenticate. "
             "If installed via uvx/pipx, ensure the install location is on "
             "PATH, or set an absolute `command` path in your MCP client config."
