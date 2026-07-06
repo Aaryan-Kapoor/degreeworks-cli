@@ -34,7 +34,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Playwright is only needed for the one-time `dw login` SSO bootstrap.
+# It's a heavy dep (~50 MB Chromium) so it's opt-in. After login, the
+# CLI reads cookies from disk and never touches Playwright.
 login = ["playwright>=1.40"]
+# Dev/test tooling. Tests are no-network smoke tests and don't need the
+# `login` extra (no Playwright, no browser) — just `pip install -e ".[dev]"`.
+dev = ["pytest>=7"]
 
 [project.urls]
 Homepage = "https://github.com/Aaryan-Kapoor/degreeworks-cli"
@@ -46,3 +52,6 @@ dw = "degreeworks.cli:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
