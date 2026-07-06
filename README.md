@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="banner.svg" alt="degreeworks-cli" width="720"/>
+  <img src="https://raw.githubusercontent.com/Aaryan-Kapoor/degreeworks-cli/main/assets/banner.gif" alt="degreeworks-cli: a student asks their AI agent whether they'll graduate on time; the agent runs dw --md dump/remaining/course, then returns a term-by-term plan to graduation" width="720"/>
 </div>
 
 <p align="center">
