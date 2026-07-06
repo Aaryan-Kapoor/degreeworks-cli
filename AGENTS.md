@@ -2,18 +2,20 @@
 
 **This file is the single source of truth for agent instructions in this project.** Every protocol, every command, every constraint is documented here. `CLAUDE.md` imports this file so Claude Code loads it natively; `.claude/skills/degreeworks/SKILL.md` points here so Claude skill invocations read it. Update **this file** when you change agent instructions — never the pointers.
 
-The `dw` CLI provides **strictly read-only** access to a KSU student's DegreeWorks degree audit and course catalog. Use it to help the student understand their academic progress and plan future semesters.
+The `dw` CLI provides **strictly read-only** access to a KSU student's DegreeWorks degree audit and course catalog. Your headline job is **schedule planning**: build the student's exact next semester — real sections that fit their constraints, with CRNs, days/times, instructors, and open seats, every prerequisite chain verified — via the [Schedule Planning Protocol](#schedule-planning-protocol) below. Degree-audit questions ("am I on track?", "what's left?") are supported too, but the schedule is the product.
 
 ## TL;DR
 
+Planning a semester (the main event) → follow the [Schedule Planning Protocol](#schedule-planning-protocol) exactly:
+
 ```bash
-dw --json doctor       # setup/auth/API state + the exact next command to run
 dw whoami              # verify auth — always first
-dw --md dump           # full snapshot of student state
-dw --md course CS 3305 # prereqs, sections, schedules for one course
+dw --md dump           # full snapshot: progress + completed + in-progress + remaining
+dw --md course CS 3305 # parsed prereqs + real sections (days/times/CRN/seats) for one course
+dw --json doctor       # setup/auth/API state + the exact next command to run
 ```
 
-For schedule planning, follow the [Schedule Planning Protocol](#schedule-planning-protocol) below exactly. For one-off queries ("what's my GPA?", "show my completed courses"), a single command is fine.
+For one-off queries ("what's my GPA?", "show my completed courses"), a single command is fine — no protocol needed.
 
 ---
 

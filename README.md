@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Aaryan-Kapoor/degreeworks-cli/main/assets/banner.gif" alt="degreeworks-cli: a student asks their AI agent whether they'll graduate on time; the agent runs dw --md dump/remaining/course, then returns a term-by-term plan to graduation" width="720"/>
+  <img src="https://raw.githubusercontent.com/Aaryan-Kapoor/degreeworks-cli/main/assets/banner.gif" alt="degreeworks-cli: a student tells their AI agent to plan spring — 15 credits, nothing before 10am, works MWF afternoons; the agent runs dw commands to check prereq bottlenecks and real sections, then lays out a conflict-free weekly schedule with CRNs" width="720"/>
 </div>
 
 <p align="center">
@@ -10,9 +10,11 @@
   <img src="https://github.com/Aaryan-Kapoor/degreeworks-cli/actions/workflows/ci.yml/badge.svg" alt="CI"/>
 </p>
 
-**degreeworks-cli** gives any AI agent — Claude Code, Cursor, Copilot, Codex, anything that can run a command — strictly **read-only** access to a KSU student's DegreeWorks degree audit and course catalog. Degree progress, remaining requirements, completed courses with grades, and full course info with parsed prerequisites and scheduled sections. You stop clicking through DegreeWorks and start asking whether you're actually on track to graduate.
+**degreeworks-cli** turns any AI agent — Claude Code, Cursor, Copilot, Codex, anything that can run a command — into your course-scheduling advisor for KSU. Tell it your constraints — *15 credits, nothing before 10am, I work MWF afternoons, clear my major's prereq bottlenecks* — and it builds your **exact next semester**: specific sections with days, times, CRNs, instructors, and open seats, every prerequisite chain verified against your real degree audit. It's strictly **read-only** — it plans the schedule, you register.
 
-<p align="center"><em>Plans schedules good enough to pass advisor review<a href="#advisor-note">*</a>.</em></p>
+The moat is a deterministic **8-phase schedule-planning protocol** plus fully parsed prerequisite logic and live section data, so the agent verifies every course instead of hallucinating one. Graduation-audit questions ("am I on track?", "what's left?") work too — but the point is the schedule.
+
+<p align="center"><em>Tell your agent your constraints, get a real schedule — one good enough to pass advisor review<a href="#advisor-note">*</a>.</em></p>
 
 ## Set up in one message
 
@@ -22,57 +24,50 @@ Paste this into your AI agent:
 Fetch and follow the instructions from
 https://raw.githubusercontent.com/Aaryan-Kapoor/degreeworks-cli/main/INSTALL_FOR_AGENTS.md
 Set up degreeworks-cli for me end to end — install it, sign me in, and verify
-it works. Then show me something useful about my degree progress and suggest
-what I should ask next.
+it works. Then help me plan my next semester: ask me for my constraints and
+build a real schedule with exact sections and CRNs.
 ```
 
-That's the whole setup. The agent installs the CLI, installs its own degreeworks skill, opens a browser for your normal KSU SSO login (it never sees your password — the CLI just captures a read-only session and auto-detects your degree), verifies everything with `dw doctor`, and finishes by pulling your real degree progress and suggesting what to ask first.
+That's the whole setup. The agent installs the CLI, installs its own degreeworks skill, opens a browser for your normal KSU SSO login (it never sees your password — the CLI just captures a read-only session and auto-detects your degree), verifies everything with `dw doctor`, and then gets to work on your schedule.
 
 After that, your login refreshes itself: the CLI silently renews the session from your saved browser profile, so you'll rarely be asked to sign in again.
 
 ## Then just ask
 
-> *"Am I actually on track to graduate on time?"*
+> *"Plan my spring semester — 15 credits, nothing before 10am, I work MWF afternoons. Give me exact sections with CRNs."*
 
-> *"What courses do I still need, and which can I take next semester?"*
+> *"Which single course, if I skip it next semester, delays my graduation the most?"*
 
 ### Prompts worth stealing
 
-The point of an agent is autonomy — don't ask for data, ask for outcomes. Copy these:
+The point of an agent is autonomy — don't ask for data, ask for a schedule. Copy these:
 
-**Plan the next two semesters**
+**Build my exact next semester** *(the headline use)*
 
 ```text
-Plan my next two semesters. Pull my full audit first, ask me for my constraints
-(target credit load, days I can't be on campus, campus preference, graduation
-target), then verify every candidate course with `dw course` for prereqs,
-offering term, and open sections before drafting a conflict-free schedule.
-Present it with a CRN table, rationale, risks, and fallbacks.
+Plan my spring semester: 15 credits, nothing before 10am, I work MWF afternoons,
+and I want to prioritize clearing prerequisite bottlenecks for my major. Pull my
+audit, then verify every candidate with `dw course` for prereqs, offering term,
+and open sections — and give me exact sections with CRNs, days/times, instructors,
+and seats. No time conflicts. Include a fallback section for each course.
 ```
 
-**Am I on track to graduate?**
+**Break my prereq bottleneck**
 
 ```text
-Am I actually on track to graduate by my target date? Pull my progress and
-remaining requirements, map out how many terms of what credit load it takes to
-finish, and flag any bottleneck — a course only offered every other term, a long
-prereq chain, or a requirement I keep deferring.
+Look at everything I still need and find the prerequisite bottlenecks — the
+courses that gate the most downstream courses. Tell me which ones to take next
+semester to unlock my critical path, with the specific sections that fit a
+schedule with no classes before 10am.
 ```
 
-**The fastest path to graduation**
+**Plan two semesters to graduation**
 
 ```text
-What's the fastest realistic path to graduation given my remaining requirements?
-Account for prerequisite chains and which courses are actually offered when.
-Give me a term-by-term plan and tell me the minimum number of semesters.
-```
-
-**Audit my completed courses**
-
-```text
-Audit my completed courses against my degree requirements. For each requirement
-block, show what's satisfied, what's in progress, and what's still open — and
-flag any completed course that didn't apply where I'd expect it to.
+Plan my next two semesters to graduation. Ask me for my credit load and any
+day/time constraints, verify every course with `dw course` for prereqs and real
+offerings, and give me a term-by-term schedule with CRNs, rationale, risks, and
+fallbacks. Flag anything only offered every other term.
 ```
 
 **The one-course deep dive**
@@ -81,6 +76,15 @@ flag any completed course that didn't apply where I'd expect it to.
 I'm considering CS 4720 next term. Check its prerequisites against what I've
 completed, tell me whether I'm eligible, and list every scheduled section with
 days, times, campus, instructor, and open seats.
+```
+
+**Am I on track to graduate?** *(the audit view)*
+
+```text
+Am I actually on track to graduate by my target date? Pull my progress and
+remaining requirements, map out how many terms of what credit load it takes to
+finish, and flag any bottleneck — a course only offered every other term, a long
+prereq chain, or a requirement I keep deferring.
 ```
 
 ## How it works
