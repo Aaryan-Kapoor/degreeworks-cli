@@ -24,6 +24,7 @@ from .commands.audit import audit
 from .commands.completed import completed
 from .commands.course import course
 from .commands.dump import dump
+from .commands.doctor import doctor
 from .commands.progress import progress
 from .commands.remaining import remaining
 from .commands.skill_cmd import skill
@@ -97,8 +98,8 @@ def cli(ctx, fmt):
     if ctx.resilient_parsing or "--help" in sys.argv or "-h" in sys.argv:
         return
 
-    # Commands that don't need auth
-    if ctx.invoked_subcommand in ("login", "skill"):
+    # Commands that don't need auth (doctor does its own auth diagnosis)
+    if ctx.invoked_subcommand in ("login", "skill", "doctor"):
         return
 
     try:
@@ -126,3 +127,4 @@ cli.add_command(dump)
 cli.add_command(progress)
 cli.add_command(remaining)
 cli.add_command(skill)
+cli.add_command(doctor)
