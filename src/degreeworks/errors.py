@@ -32,8 +32,7 @@ def raise_for_status(resp):
         return
     if resp.status_code == 401:
         raise CookieExpiredError(
-            "Session expired. Run `dw login` or paste fresh cookies into "
-            f"{__import__('degreeworks.config', fromlist=['COOKIES_FILE']).COOKIES_FILE}"
+            "Session expired. Run `dw login` to re-authenticate with KSU SSO."
         )
     raise APIError(resp.status_code, resp.text[:200])
 

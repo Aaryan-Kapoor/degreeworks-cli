@@ -1,48 +1,81 @@
-"""Authentication commands: login, whoami."""
+"""Authentication commands: login, whoami, plus silent headless refresh."""
 
+import os
 import time
 from urllib.parse import parse_qs, urlparse
 
 import click
 
 from ..auth import get_student_info, load_cookies
-from ..config import CONFIG_DIR, COOKIES_FILE, save_config
+from ..config import BROWSER_PROFILE, CONFIG_DIR, COOKIES_FILE, save_config
 from ..errors import handle_errors
 from ..formatting import get_format, output, section
 
+# Env var to disable the automatic background refresh (mirrors d2l).
+AUTO_LOGIN_DISABLED_ENV = "DEGREEWORKS_NO_AUTO_LOGIN"
 
-def _has_auth_cookies(cookies: list[dict]) -> bool:
+# Interactive logins wait for a human at the SSO screen; headless refreshes
+# reuse the saved SSO session and should either work fast or give up quickly.
+LOGIN_WAIT_SECONDS = 120
+HEADLESS_WAIT_SECONDS = 30
+
+
+def _has_auth_cookie(cookies: list[dict]) -> bool:
     """Check if the captured cookies include a DegreeWorks auth token."""
-    names = {c["name"] for c in cookies}
-    return "X-AUTH-TOKEN" in names
+    return any(c.get("name") == "X-AUTH-TOKEN" for c in cookies)
 
 
-@click.command()
-@click.option("--headless", is_flag=True, help="Headless browser (reuse saved SSO session)")
-@handle_errors
-def login(headless):
-    """Capture DegreeWorks cookies via browser login.
+def _launch_context(p, headless, channel):
+    """Launch a persistent browser context, falling back across browsers.
 
-    Opens a browser to KSU SSO. Log in normally — cookies are captured
-    automatically once DegreeWorks loads.
-
-    Use --headless to refresh cookies without a visible browser (requires
-    a prior interactive login so the browser profile has saved SSO cookies).
+    'auto' tries Playwright's bundled Chromium first, then installed Chrome and
+    Edge — so login works even when `playwright install chromium` was never run,
+    as long as any Chromium-family browser is on the machine.
     """
+    if channel == "auto":
+        attempts = [(None, "bundled Chromium"), ("chrome", "Google Chrome"), ("msedge", "Microsoft Edge")]
+    elif channel == "chromium":
+        attempts = [(None, "bundled Chromium")]
+    else:
+        attempts = [(channel, channel)]
+
+    errors = []
+    for chan, label in attempts:
+        kwargs = {"headless": headless, "viewport": {"width": 1280, "height": 720}}
+        if chan:
+            kwargs["channel"] = chan
+        try:
+            return p.chromium.launch_persistent_context(str(BROWSER_PROFILE), **kwargs), label
+        except Exception as e:
+            first_line = str(e).splitlines()[0] if str(e).strip() else type(e).__name__
+            errors.append(f"    {label}: {first_line}")
+
+    return None, errors
+
+
+def _capture_and_save(headless, channel="auto", quiet=False):
+    """Launch a browser, capture DegreeWorks cookies, and save them.
+
+    Returns True on success. quiet=True suppresses all output — used by the
+    automatic background refresh so command output stays clean.
+    """
+    def echo(msg, err=False):
+        if not quiet:
+            click.echo(msg, err=err)
+
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
-        click.echo(
-            "Playwright not installed. Install with:\n"
-            '  pip install "degreeworks-cli[login]"\n'
-            "  playwright install chromium"
+        echo(
+            'Playwright not installed. Install with:\n'
+            '  pip install "degreeworks-cli[login]"',
+            err=True,
         )
-        raise SystemExit(1)
+        return False
 
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    browser_profile = CONFIG_DIR / "browser_profile"
 
-    # We'll capture school/degree from the first /api/audit request
+    # Capture school/degree from the first /api/audit request.
     captured = {}
 
     def on_request(request):
@@ -58,50 +91,57 @@ def login(headless):
                 pass
 
     with sync_playwright() as p:
-        browser = p.chromium.launch_persistent_context(
-            str(browser_profile),
-            headless=headless,
-            viewport={"width": 1280, "height": 720},
-        )
-        page = browser.pages[0] if browser.pages else browser.new_page()
+        context, launch_result = _launch_context(p, headless, channel)
+        if context is None:
+            echo("[!] Could not launch a browser for login. Tried:", err=True)
+            for line in launch_result:
+                echo(line, err=True)
+            echo(
+                "    Fix: run `python -m playwright install chromium`, "
+                "or install Google Chrome / Microsoft Edge.",
+                err=True,
+            )
+            return False
+
+        page = context.pages[0] if context.pages else context.new_page()
         page.on("request", on_request)
 
         if not headless:
-            click.echo("Opening DegreeWorks... Log in with your KSU credentials.")
+            echo("Opening DegreeWorks... Log in with your KSU credentials.")
         else:
-            click.echo("Refreshing cookies (headless)...")
+            echo("Refreshing cookies (headless)...")
 
         page.goto("https://degreeworks.kennesaw.edu/")
 
-        # Wait for both auth cookies AND the audit request so we can capture
-        # school/degree from the query params.
-        deadline = time.time() + 120
+        # Wait for both the auth cookie AND the audit request (for school/degree).
+        deadline = time.time() + (HEADLESS_WAIT_SECONDS if headless else LOGIN_WAIT_SECONDS)
         while time.time() < deadline:
             cookies = page.context.cookies()
-            if _has_auth_cookies(cookies) and captured.get("school"):
+            if _has_auth_cookie(cookies) and captured.get("school"):
                 break
             time.sleep(1)
         else:
             cookies = page.context.cookies()
-            if not _has_auth_cookies(cookies):
-                click.echo("Timed out waiting for login. Try again.", err=True)
-                browser.close()
-                raise SystemExit(1)
-            # We got cookies but not the audit request — proceed with defaults
-            click.echo("Note: couldn't auto-detect school/degree. Using defaults (US/BS).")
+            if not _has_auth_cookie(cookies):
+                echo("Timed out waiting for login. Try again." if not headless
+                     else "[!] Headless refresh timed out (saved session may be expired).",
+                     err=True)
+                context.close()
+                return False
+            # Got cookies but not the audit request — proceed with existing config.
+            if not headless:
+                echo("Note: couldn't auto-detect school/degree. Keeping existing config.")
 
-        # Small delay for all cookies to settle
         time.sleep(1)
         cookies = page.context.cookies()
 
-        # Filter to degreeworks.kennesaw.edu cookies only
+        # Filter to degreeworks.kennesaw.edu cookies only.
         dw_cookies = [c for c in cookies if "degreeworks" in c.get("domain", "")]
         all_cookies = dw_cookies if dw_cookies else cookies
         cookie_str = "; ".join(f"{c['name']}={c['value']}" for c in all_cookies)
 
         COOKIES_FILE.write_text(cookie_str)
 
-        # Persist captured school/degree if we got them
         if captured.get("school") and captured.get("degree"):
             save_config(
                 school=captured["school"],
@@ -114,17 +154,70 @@ def login(headless):
             expires = time.strftime(
                 "%H:%M:%S", time.localtime(info["expires"])
             ) if info.get("expires") else "unknown"
-            click.echo(f"Logged in as: {info['name']} ({info['student_id']})")
-            click.echo(f"Auth token expires at: {expires} (90 min)")
-            click.echo(f"Cookies saved to {COOKIES_FILE}")
+            echo(f"Logged in as: {info['name']} ({info['student_id']})")
+            echo(f"Auth token expires at: {expires} (90 min)")
+            echo(f"Cookies saved to {COOKIES_FILE}")
             if captured.get("school"):
-                click.echo(
-                    f"Detected degree: {captured['school']}/{captured['degree']}"
-                )
+                echo(f"Detected degree: {captured['school']}/{captured['degree']}")
         else:
-            click.echo(f"Cookies saved to {COOKIES_FILE} (could not decode token)")
+            echo(f"Cookies saved to {COOKIES_FILE} (could not decode token)")
 
-        browser.close()
+        context.close()
+
+    return True
+
+
+def _playwright_available():
+    from importlib.util import find_spec
+
+    return find_spec("playwright") is not None
+
+
+def attempt_auto_login():
+    """Silent headless cookie refresh using the saved browser profile.
+
+    Called automatically when a command finds the session missing/expired.
+    Returns True if fresh cookies were captured; never raises and never opens
+    a visible browser.
+    """
+    if os.environ.get(AUTO_LOGIN_DISABLED_ENV):
+        return False
+    if not BROWSER_PROFILE.exists():
+        return False
+    if not _playwright_available():
+        return False
+
+    click.echo(
+        "[*] DegreeWorks session expired — refreshing sign-in in the background...",
+        err=True,
+    )
+    try:
+        return _capture_and_save(headless=True, channel="auto", quiet=True)
+    except Exception:
+        return False
+
+
+@click.command()
+@click.option("--headless", is_flag=True, help="Headless browser (reuse saved SSO session)")
+@click.option(
+    "--channel",
+    type=click.Choice(["auto", "chromium", "chrome", "msedge"]),
+    default="auto",
+    show_default=True,
+    help="Browser to launch; auto falls back from bundled Chromium to installed Chrome/Edge",
+)
+@handle_errors
+def login(headless, channel):
+    """Capture DegreeWorks cookies via browser login.
+
+    Opens a browser to KSU SSO. Log in normally — cookies are captured
+    automatically once DegreeWorks loads.
+
+    Use --headless to refresh cookies without a visible browser (requires a
+    prior interactive login so the browser profile has saved SSO cookies).
+    """
+    if not _capture_and_save(headless=headless, channel=channel):
+        raise SystemExit(1)
 
 
 @click.command()
