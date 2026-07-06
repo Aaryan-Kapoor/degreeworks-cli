@@ -26,6 +26,7 @@ from .commands.course import course
 from .commands.dump import dump
 from .commands.progress import progress
 from .commands.remaining import remaining
+from .commands.skill_cmd import skill
 
 
 def _make_client_factory(cookies: str, config: dict):
@@ -75,7 +76,7 @@ def cli(ctx, fmt):
         return
 
     # Commands that don't need auth
-    if ctx.invoked_subcommand in ("login",):
+    if ctx.invoked_subcommand in ("login", "skill"):
         return
 
     try:
@@ -102,3 +103,4 @@ cli.add_command(course)
 cli.add_command(dump)
 cli.add_command(progress)
 cli.add_command(remaining)
+cli.add_command(skill)
