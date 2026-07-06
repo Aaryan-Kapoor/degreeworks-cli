@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "degreeworks-cli"
 version = "0.1.0"
-description = "Read-only DegreeWorks CLI for KSU – built for AI agents to plan student schedules"
+description = "Read-only DegreeWorks CLI for KSU — lets an AI agent build your exact semester schedule (real sections, times, CRNs, verified prereqs) from your degree audit"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"

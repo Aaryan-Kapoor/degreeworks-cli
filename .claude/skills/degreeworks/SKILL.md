@@ -1,6 +1,6 @@
 ---
 name: degreeworks
-description: Access KSU DegreeWorks data (degree audit, remaining requirements, completed courses, course info with prereqs and sections) and follow the deterministic 8-phase schedule-planning protocol. Use when the student asks about degree progress, remaining requirements, or planning any future semester.
+description: Plan a KSU student's exact next semester — real sections, times, CRNs, and verified prerequisite chains — via the deterministic 8-phase schedule-planning protocol, backed by read-only DegreeWorks audit and course-catalog data. Use when the student asks to plan a semester, pick courses, build a schedule, break a prereq bottleneck, or check degree progress / remaining requirements.
 allowed-tools: Bash(dw *) Read
 ---
 

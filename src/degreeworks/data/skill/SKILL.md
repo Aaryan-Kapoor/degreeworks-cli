@@ -1,15 +1,19 @@
 ---
 name: degreeworks
-description: Access KSU DegreeWorks data (degree audit, remaining requirements, completed courses, GPA, course info with prereqs and sections) and run the deterministic 8-phase schedule-planning protocol. Use when the student asks about degree progress, remaining requirements, whether they're on track to graduate, or planning any future semester.
+description: Plan a KSU student's exact next semester — real sections, times, CRNs, and verified prerequisite chains — via the deterministic 8-phase schedule-planning protocol, backed by read-only DegreeWorks audit and course-catalog data. Use when the student asks to plan a semester, pick courses, build a schedule, break a prereq bottleneck, or check degree progress / remaining requirements.
 allowed-tools: Bash(dw *) Bash(dw) Read
 metadata: {"openclaw":{"emoji":"🎓","requires":{"bins":["dw"]}}}
 ---
 
-# KSU DegreeWorks — Degree Audit & Schedule Planning
+# KSU DegreeWorks — Schedule Planning & Degree Audit
 
 You have access to the `dw` CLI, which pulls **strictly read-only** data from a
-KSU student's DegreeWorks degree audit and course catalog. Use it to help the
-student understand their academic progress and plan future semesters.
+KSU student's DegreeWorks degree audit and course catalog. Your headline job:
+**build the student's exact next semester** — pick real sections that fit their
+constraints (credit load, no-early-classes, work days, campus, prof preferences),
+with CRNs, days/times, instructors, and open seats, every prerequisite verified —
+using the 8-phase protocol below. It also answers degree-progress and
+remaining-requirement questions, but scheduling is the point.
 
 ## Quick Reference
 
