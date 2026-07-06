@@ -16,7 +16,7 @@ import click
 from .auth import check_token_expiry, get_student_info, load_cookies, make_session
 from .client import DegreeworksClient
 from .config import load_config
-from .errors import DegreeworksError
+from .errors import CookieExpiredError, CookieNotFoundError, DegreeworksError
 from .formatting import set_format
 
 from .commands.auth_cmd import login, whoami
@@ -27,6 +27,28 @@ from .commands.dump import dump
 from .commands.progress import progress
 from .commands.remaining import remaining
 from .commands.skill_cmd import skill
+
+
+def _resolve_cookies() -> str:
+    """Load cookies, transparently refreshing them via a silent headless login
+    when the session is missing or expired. Only when that silent refresh fails
+    does the user need to sign in interactively with `dw login`."""
+    from .commands.auth_cmd import attempt_auto_login
+
+    try:
+        cookies = load_cookies()
+        check_token_expiry(cookies)
+        return cookies
+    except (CookieExpiredError, CookieNotFoundError) as e:
+        if attempt_auto_login():
+            cookies = load_cookies()
+            check_token_expiry(cookies)
+            click.echo("[*] Signed in automatically using your saved session.", err=True)
+            return cookies
+        raise e.__class__(
+            "Your DegreeWorks session needs a fresh sign-in. Run: dw login "
+            "(a browser window will open — log in with KSU SSO like normal)"
+        ) from e
 
 
 def _make_client_factory(cookies: str, config: dict):
@@ -80,12 +102,12 @@ def cli(ctx, fmt):
         return
 
     try:
-        cookies = load_cookies()
-
-        # whoami can work with expired tokens (just shows info)
-        # but API commands need valid tokens
-        if ctx.invoked_subcommand not in ("whoami",):
-            check_token_expiry(cookies)
+        # whoami reports current token status (even when expired) and must not
+        # trigger a refresh. Everything else auto-refreshes an expired session.
+        if ctx.invoked_subcommand in ("whoami",):
+            cookies = load_cookies()
+        else:
+            cookies = _resolve_cookies()
 
         info = get_student_info(cookies)
         ctx.obj["student_id"] = info.get("student_id", "")

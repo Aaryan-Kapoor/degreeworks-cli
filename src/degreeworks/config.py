@@ -11,6 +11,7 @@ COURSE_ENDPOINT = "/api/course-link"
 CONFIG_DIR = Path.home() / ".degreeworks"
 COOKIES_FILE = CONFIG_DIR / "cookies.txt"
 CONFIG_FILE = CONFIG_DIR / "config.json"
+BROWSER_PROFILE = CONFIG_DIR / "browser_profile"
 
 DEFAULT_HEADERS = {
     "Accept-Language": "en-US,en;q=0.9",

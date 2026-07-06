@@ -43,11 +43,9 @@ def load_cookies() -> str:
         if text:
             return text
     raise CookieNotFoundError(
-        f"No cookies found at {COOKIES_FILE}\n"
-        "Run `dw login` to capture cookies automatically, or:\n"
-        "  1. Log into degreeworks.kennesaw.edu in your browser\n"
-        "  2. Copy the full cookie string from devtools (Network tab → request headers)\n"
-        f"  3. Paste into {COOKIES_FILE} (single line, no quotes)"
+        f"No DegreeWorks session found at {COOKIES_FILE}\n"
+        "Run `dw login` — a browser opens for KSU SSO and cookies are captured "
+        "automatically once DegreeWorks loads. No token copying or DevTools needed."
     )
 
 
