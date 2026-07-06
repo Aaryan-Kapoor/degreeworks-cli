@@ -7,6 +7,7 @@ The `dw` CLI provides **strictly read-only** access to a KSU student's DegreeWor
 ## TL;DR
 
 ```bash
+dw --json doctor       # setup/auth/API state + the exact next command to run
 dw whoami              # verify auth — always first
 dw --md dump           # full snapshot of student state
 dw --md course CS 3305 # prereqs, sections, schedules for one course
@@ -159,6 +160,27 @@ Every command accepts these flags, placed **before** the subcommand:
 
 **Default output** is human-readable tables with Unicode progress bars. For agent use, prefer `--md`.
 
+### `dw doctor`
+
+Diagnose setup state: install, PATH, Playwright, config, saved session, token validity, and a live read-only API call. Reports each check with a `next_step` command and exits non-zero when a required check fails. No auth required — it diagnoses auth itself.
+
+```bash
+dw doctor
+dw --json doctor   # machine-readable; follow result.next_step
+```
+
+Run this first whenever setup state is unclear — during onboarding or months later. It is the single source of truth for "what do I need to do next."
+
+### `dw skill install DIR`
+
+Install the bundled agent skill (SKILL.md + references) into a skill directory, so any pip/pipx install is productive without a repo checkout.
+
+```bash
+dw skill install ~/.claude/skills/degreeworks   # Claude Code (user)
+dw skill install .claude/skills/degreeworks     # Claude Code (project)
+dw skill cat                                    # print SKILL.md to stdout
+```
+
 ### `dw login`
 
 Capture cookies via KSU SSO. Opens a Chromium browser via Playwright.
@@ -275,13 +297,20 @@ Files:
 
 ## Auth Error Recovery
 
+Auth normally maintains itself: the auth token expires about every 90 minutes,
+but before any command fails, the CLI **silently** attempts a headless refresh
+from the saved browser profile (`~/.degreeworks/browser_profile`). You will
+rarely see an auth error. When the silent refresh can't recover, you'll get:
+
 | Error | What it means | What to do |
 |---|---|---|
-| `No cookies found` | First time use, or cookies deleted | Run `dw login` |
-| `Auth token expired, but refresh token is still valid` | 90 min lapsed | Run `dw login --headless` |
-| `Session fully expired` | Both tokens dead (>8 hrs) | Run `dw login` |
+| `No DegreeWorks session found` | First use, or cookies deleted, and no saved session to refresh from | Ask the user, then run `dw login` |
+| `Your DegreeWorks session needs a fresh sign-in` | Silent refresh failed — the saved SSO session has fully expired | Ask the user, then run `dw login` |
 
-Check `dw whoami` anytime to see exact token status without triggering an API call.
+The user completes the browser/SSO login interactively; never ask them to copy
+tokens or open DevTools. Set `DEGREEWORKS_NO_AUTO_LOGIN=1` to disable the silent
+refresh (rarely needed). Check `dw whoami` or `dw doctor` anytime to see token
+status without triggering a refresh.
 
 ---
 
