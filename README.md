@@ -96,12 +96,12 @@ prereq chain, or a requirement I keep deferring.
 ## Manual setup (no agent)
 
 ```bash
-pipx install "degreeworks-cli[login] @ https://github.com/Aaryan-Kapoor/degreeworks-cli/archive/refs/heads/main.zip"
+pipx install "degreeworks-cli[login]"
 dw login          # browser opens — log in with KSU SSO
 dw progress       # how close to graduation?
 ```
 
-No pipx? Use `python -m pip install --user "degreeworks-cli[login] @ https://github.com/Aaryan-Kapoor/degreeworks-cli/archive/refs/heads/main.zip"` (on Windows: `py -m pip install --user "degreeworks-cli[login] @ https://github.com/Aaryan-Kapoor/degreeworks-cli/archive/refs/heads/main.zip"`) and make sure Python's user scripts directory is on your PATH — pip prints its exact location in a warning if it isn't.
+No pipx? Use `python -m pip install --user "degreeworks-cli[login]"` (on Windows: `py -m pip install --user "degreeworks-cli[login]"`) and make sure Python's user scripts directory is on your PATH — pip prints its exact location in a warning if it isn't.
 
 `dw login` uses Playwright's bundled Chromium if present, and automatically falls back to your installed Chrome or Edge — so no 150 MB browser download is required on most machines.
 

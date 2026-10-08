@@ -9,7 +9,7 @@ protocol and command reference, read [`AGENTS.md`](AGENTS.md).
 ## Setup (run once)
 
 ```bash
-pipx install "degreeworks-cli[login] @ https://github.com/Aaryan-Kapoor/degreeworks-cli/archive/refs/heads/main.zip"   # or: python -m pip install --user "degreeworks-cli[login] @ https://github.com/Aaryan-Kapoor/degreeworks-cli/archive/refs/heads/main.zip"
+pipx install "degreeworks-cli[login]"   # or: python -m pip install --user "degreeworks-cli[login]"
 dw skill install ~/.claude/skills/degreeworks   # install the bundled skill
 dw login                                 # user logs in via KSU SSO — opens a browser
 ```
