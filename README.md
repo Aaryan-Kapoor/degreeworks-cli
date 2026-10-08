@@ -167,4 +167,4 @@ This is a personal project and is not affiliated with, endorsed by, or associate
 ---
 
 <a name="advisor-note"></a>
-<sub>* A Spring/Fall 2026 semester plan generated using this tool together with Claude Opus in Claude Code was reviewed and approved by a KSU academic advisor. The advisor was not affiliated with this project and was not informed that the plan was AI-generated; it was presented as my own work. This note exists to share a real-world validation signal and does not imply any endorsement by the advisor or the university. — Aaryan Kapoor</sub>
+<sub>* I have used this tool, together with Claude Opus in Claude Code, to plan my own schedule for three semesters, and KSU academic advisors have reviewed and approved plans made with it. The advisors were not affiliated with this project and were not informed that the plans were AI-generated; they were presented as my own work. This note exists to share a real-world validation signal and does not imply any endorsement by the advisors or the university. — Aaryan Kapoor</sub>
