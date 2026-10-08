@@ -23,7 +23,7 @@ These rules apply during setup and forever after:
 If `pipx` is available, prefer it:
 
 ```bash
-pipx install "degreeworks-cli[login]"
+pipx install "degreeworks-cli[login] @ https://github.com/Aaryan-Kapoor/degreeworks-cli/archive/refs/heads/main.zip"
 pipx ensurepath      # persists the install dir on PATH (no-op if already there)
 dw --version
 ```
@@ -31,7 +31,7 @@ dw --version
 Otherwise use pip (`py` instead of `python` on Windows if `python` is not found):
 
 ```bash
-python -m pip install --user "degreeworks-cli[login]"
+python -m pip install --user "degreeworks-cli[login] @ https://github.com/Aaryan-Kapoor/degreeworks-cli/archive/refs/heads/main.zip"
 dw --version
 ```
 
