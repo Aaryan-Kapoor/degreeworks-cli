@@ -71,6 +71,7 @@ def _make_client_factory(cookies: str, config: dict):
 
 
 @click.group()
+@click.version_option(package_name="degreeworks-cli", prog_name="dw")
 @click.option("--json", "fmt", flag_value="json", help="JSON output")
 @click.option("--md", "fmt", flag_value="md", help="Markdown output (best for AI)")
 @click.pass_context
