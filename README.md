@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Aaryan-Kapoor/degreeworks-cli/main/assets/banner.gif" alt="degreeworks-cli: a student tells their AI agent to plan spring — 15 credits, nothing before 10am, works MWF afternoons; the agent runs dw commands to check prereq bottlenecks and real sections, then lays out a conflict-free weekly schedule with CRNs" width="720"/>
+  <img src="https://raw.githubusercontent.com/Aaryan-Kapoor/degreeworks-cli/main/assets/showcase.gif" alt="degreeworks-cli, before and after. Before: planning a semester by hand means reading the degree audit, tracing prerequisites, searching sections one by one and fitting them around work, which takes an evening. After: a student types one message to their AI agent (15 credits, nothing before 10am, I work MWF afternoons), the agent runs dw commands against the real audit and live sections, and a conflict-free weekly schedule with CRNs appears. Free, open source, read-only." width="800"/>
 </div>
 
 <p align="center">
